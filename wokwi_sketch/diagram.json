@@ -12,14 +12,14 @@
       "rotate": 90,
       "attrs": {}
     },
-    { "type": "chip-acs712", "id": "chip1", "top": 97.02, "left": 753.6, "attrs": {} },
-    { "type": "chip-voltage-divider", "id": "chip2", "top": 97.02, "left": 561.6, "attrs": {} },
+    { "type": "chip-acs712", "id": "chip1", "top": 97.02, "left": 753.6, "attrs": { "current": "4.5" } },
+    { "type": "chip-voltage-divider", "id": "chip2", "top": 97.02, "left": 561.6, "attrs": { "voltage": "13.2" } },
     {
       "type": "wokwi-ntc-temperature-sensor",
       "id": "ntc1",
       "top": 69.8,
       "left": 345,
-      "attrs": {}
+      "attrs": { "temperature": "28" }
     },
     { "type": "wokwi-relay-module", "id": "relay1", "top": -220.6, "left": 470.4, "attrs": {} },
     {
