@@ -1,0 +1,32 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Light Theme (Monochrome Hitam - Putih) -->
+    <SolidColorBrush x:Key="BgWindow" Color="#F4F5F8" />
+    <SolidColorBrush x:Key="BgCard" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="BgCardHover" Color="#F9FAFB" />
+    <SolidColorBrush x:Key="BgCardAlt" Color="#EAECEF" />
+    <SolidColorBrush x:Key="BorderCard" Color="#DDE0E6" />
+    <SolidColorBrush x:Key="BorderCardSubtle" Color="#EBEDF2" />
+    
+    <SolidColorBrush x:Key="FgPrimary" Color="#000000" />
+    <SolidColorBrush x:Key="FgSecondary" Color="#5A5F6B" />
+    <SolidColorBrush x:Key="FgDimmed" Color="#8E93A0" />
+    <SolidColorBrush x:Key="FgInverse" Color="#FFFFFF" />
+    
+    <SolidColorBrush x:Key="AccentBrush" Color="#000000" />
+    <SolidColorBrush x:Key="AccentMuted" Color="#E4E6EA" />
+    
+    <SolidColorBrush x:Key="GaugeTrackBrush" Color="#E8EAEF" />
+    <SolidColorBrush x:Key="GaugeActiveBrush" Color="#000000" />
+    
+    <SolidColorBrush x:Key="TerminalBg" Color="#ECEEF2" />
+    <SolidColorBrush x:Key="TerminalFg" Color="#1E2024" />
+    <SolidColorBrush x:Key="TerminalBorder" Color="#D2D6DF" />
+
+    <SolidColorBrush x:Key="WaveformVoltBrush" Color="#000000" />
+    <SolidColorBrush x:Key="WaveformCurrBrush" Color="#50545E" />
+    <SolidColorBrush x:Key="WaveformTempBrush" Color="#9FA3AD" />
+    <SolidColorBrush x:Key="GridLineBrush" Color="#E5E8EE" />
+
+</ResourceDictionary>
