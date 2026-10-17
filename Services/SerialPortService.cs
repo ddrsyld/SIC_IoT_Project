@@ -164,7 +164,8 @@ namespace DashboardMonitorBateraiManajemen.Services
                     double i = GetJsonDouble(root, "i", "current", "arus");
                     double t = GetJsonDouble(root, "t", "temp", "temperature", "suhu");
                     double soc = GetJsonDouble(root, "soc", "charge");
-                    double soh = GetJsonDouble(root, "soh", "health");
+                    double ah = GetJsonDouble(root, "ah", "cap", "capacity", "ampere_hour", "soh");
+                    if (ah <= 0 && soc > 0) ah = Math.Round((soc / 100.0) * 100.0, 1);
 
                     return new BatteryTelemetry
                     {
@@ -172,7 +173,7 @@ namespace DashboardMonitorBateraiManajemen.Services
                         Current = Math.Round(i, 2),
                         Temperature = Math.Round(t, 1),
                         SOC = Math.Clamp(Math.Round(soc, 1), 0, 100),
-                        SOH = Math.Clamp(Math.Round(soh, 1), 0, 100),
+                        CapacityAh = Math.Round(ah, 2),
                         Timestamp = DateTime.Now
                     };
                 }
@@ -182,7 +183,7 @@ namespace DashboardMonitorBateraiManajemen.Services
                 }
             }
 
-            // 2. Coba Parsing Key-Value: V:48.2,I:12.5,T:32.1,SOC:87,SOH:98 atau V=48.2;I=...
+            // 2. Coba Parsing Key-Value: V:48.2,I:12.5,T:32.1,SOC:87,AH:87 atau V=48.2;I=...
             if (raw.Contains(':') || raw.Contains('='))
             {
                 try
@@ -191,10 +192,11 @@ namespace DashboardMonitorBateraiManajemen.Services
                     double i = ExtractRegexNumber(raw, @"(?:I|CURRENT|ARUS)\s*[:=]\s*([+-]?\d+(?:\.\d+)?)");
                     double t = ExtractRegexNumber(raw, @"(?:T|TEMP|TEMPERATURE|SUHU)\s*[:=]\s*([+-]?\d+(?:\.\d+)?)");
                     double soc = ExtractRegexNumber(raw, @"(?:SOC|CHARGE)\s*[:=]\s*([+-]?\d+(?:\.\d+)?)");
-                    double soh = ExtractRegexNumber(raw, @"(?:SOH|HEALTH)\s*[:=]\s*([+-]?\d+(?:\.\d+)?)");
+                    double ah = ExtractRegexNumber(raw, @"(?:AH|CAP|CAPACITY|AMPERE_HOUR|SOH)\s*[:=]\s*([+-]?\d+(?:\.\d+)?)");
+                    if (ah <= 0 && soc > 0) ah = Math.Round((soc / 100.0) * 100.0, 1);
 
                     // Minimal salah satu parameter penting ditemukan
-                    if (v > 0 || soc > 0 || soh > 0)
+                    if (v > 0 || soc > 0 || ah > 0)
                     {
                         return new BatteryTelemetry
                         {
@@ -202,7 +204,7 @@ namespace DashboardMonitorBateraiManajemen.Services
                             Current = Math.Round(i, 2),
                             Temperature = Math.Round(t, 1),
                             SOC = Math.Clamp(Math.Round(soc, 1), 0, 100),
-                            SOH = Math.Clamp(Math.Round(soh, 1), 0, 100),
+                            CapacityAh = Math.Round(ah, 2),
                             Timestamp = DateTime.Now
                         };
                     }
@@ -213,7 +215,7 @@ namespace DashboardMonitorBateraiManajemen.Services
                 }
             }
 
-            // 3. Coba Parsing CSV: 48.2,12.5,32.1,87,98 (V, I, T, SOC, SOH)
+            // 3. Coba Parsing CSV: 48.2,12.5,32.1,87,87 (V, I, T, SOC, AH)
             char delimiter = raw.Contains(';') ? ';' : ',';
             var parts = raw.Split(delimiter, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
             if (parts.Length >= 5)
@@ -222,7 +224,7 @@ namespace DashboardMonitorBateraiManajemen.Services
                     double.TryParse(parts[1], NumberStyles.Any, CultureInfo.InvariantCulture, out double i) &&
                     double.TryParse(parts[2], NumberStyles.Any, CultureInfo.InvariantCulture, out double t) &&
                     double.TryParse(parts[3], NumberStyles.Any, CultureInfo.InvariantCulture, out double soc) &&
-                    double.TryParse(parts[4], NumberStyles.Any, CultureInfo.InvariantCulture, out double soh))
+                    double.TryParse(parts[4], NumberStyles.Any, CultureInfo.InvariantCulture, out double ah))
                 {
                     return new BatteryTelemetry
                     {
@@ -230,7 +232,7 @@ namespace DashboardMonitorBateraiManajemen.Services
                         Current = Math.Round(i, 2),
                         Temperature = Math.Round(t, 1),
                         SOC = Math.Clamp(Math.Round(soc, 1), 0, 100),
-                        SOH = Math.Clamp(Math.Round(soh, 1), 0, 100),
+                        CapacityAh = Math.Round(ah, 2),
                         Timestamp = DateTime.Now
                     };
                 }

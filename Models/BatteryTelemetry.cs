@@ -8,13 +8,18 @@ namespace DashboardMonitorBateraiManajemen.Models
         public double Current { get; set; }       // Ampere (A)
         public double Temperature { get; set; }   // Celsius (°C)
         public double SOC { get; set; }           // State of Charge (0 - 100%)
-        public double SOH { get; set; }           // State of Health (0 - 100%)
+        public double CapacityAh { get; set; }    // Kapasitas / Deteksi Ah (Ampere-Hour)
+        public double NominalCapacityAh { get; set; } = 100.0; // Kapasitas Nominal Pack (100 Ah)
         public DateTime Timestamp { get; set; } = DateTime.Now;
 
         // Computed Properties
         public double Power => Math.Round(Voltage * Current, 2); // Watt (W)
         public bool IsCharging => Current > 0.05;
         public bool IsDischarging => Current < -0.05;
+
+        public double CapacityPercentage => NominalCapacityAh > 0 
+            ? Math.Clamp(Math.Round((CapacityAh / NominalCapacityAh) * 100.0, 1), 0, 100) 
+            : 0;
 
         public string OperatingMode
         {
@@ -26,14 +31,14 @@ namespace DashboardMonitorBateraiManajemen.Models
             }
         }
 
-        public string HealthGrade
+        public string CapacityStatus
         {
             get
             {
-                if (SOH >= 95) return "GRADE A+ (OPTIMAL)";
-                if (SOH >= 85) return "GRADE A (GOOD)";
-                if (SOH >= 75) return "GRADE B (FAIR)";
-                return "GRADE C (DEGRADED)";
+                if (CapacityAh >= 80) return "OPTIMAL (> 80 Ah)";
+                if (CapacityAh >= 40) return "NORMAL (40-80 Ah)";
+                if (CapacityAh >= 20) return "LOW CAPACITY (< 40 Ah)";
+                return "CRITICAL EMPTY";
             }
         }
 

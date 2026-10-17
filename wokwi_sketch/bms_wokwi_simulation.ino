@@ -1,42 +1,118 @@
 /*
  * =========================================================================================
- * BATERAI MANAGEMENT SYSTEM (BMS) TELEMETRY SIMULATOR UNTUK WOKWI (ARDUINO / ESP32)
+ * BATERAI MANAGEMENT SYSTEM (BMS) TELEMETRY SIMULATOR VIA MQTT UNTUK WOKWI (ESP32)
  * =========================================================================================
- * Sketch ini menyimulasikan pembacaan sensor baterai:
+ * Sketch ini menyimulasikan pembacaan sensor baterai dan mengirimkannya via MQTT (Internet)
+ * serta Serial Monitor secara berkala.
+ * 
+ * Parameter Telemetri:
  * 1. Tegangan (Voltage, V)
  * 2. Arus (Current, A)
  * 3. Suhu (Temperature, °C)
  * 4. SOC (State of Charge, %)
- * 5. SOH (State of Health, %)
+ * 5. Deteksi Kapasitas (Capacity, Ah)  -> [SOH telah digantikan dengan Deteksi Ah]
  *
- * Dikirim melalui Serial / RS-232 setiap 200 ms (5 Hz) dalam format JSON & CSV.
- * Kompatibel langsung dengan dashboard WPF Monochrome kita!
+ * Koneksi Jaringan:
+ * - WiFi SSID : Wokwi-GUEST (Virtual WiFi bawaan Wokwi, tanpa password)
+ * - MQTT Broker: broker.emqx.io (Port: 1883)
+ * - MQTT Topic : sic/bms/telemetry
  * =========================================================================================
  */
 
-// Parameter Awal Baterai
-float voltage = 48.60;      // Volt (Nominal Pack 48V / 16S)
-float currentVal = 14.50;   // Ampere (+ = Charging, - = Discharging)
-float temperature = 31.2;   // Derajat Celsius
-float soc = 86.0;           // State of Charge (%)
-float soh = 97.8;           // State of Health (%)
+#include <WiFi.h>
+#include <PubSubClient.h>
+
+// 1. Konfigurasi WiFi Wokwi
+const char* ssid = "Wokwi-GUEST";
+const char* password = "";
+
+// 2. Konfigurasi MQTT Broker Publik
+const char* mqtt_server = "broker.emqx.io";
+const int mqtt_port = 1883;
+const char* mqtt_topic = "sic/bms/telemetry";
+
+WiFiClient espClient;
+PubSubClient client(espClient);
+
+// 3. Parameter Awal Baterai
+float voltage = 48.60;          // Volt (Pack 48V / 16S)
+float currentVal = 14.50;       // Ampere (+ = Charging, - = Discharging)
+float temperature = 31.2;       // Derajat Celsius
+float nominalCapacity = 100.0;  // Kapasitas Nominal Pack (100 Ah)
+float capacityAh = 86.0;        // Deteksi Kapasitas Terisi (Ah)
+float soc = 86.0;               // State of Charge (%)
 
 unsigned long lastSendTime = 0;
-const unsigned long sendInterval = 200; // Kirim tiap 200 ms (5 Hz)
+const unsigned long sendInterval = 500; // Kirim tiap 500 ms (2 Hz agar stabil di MQTT publik)
+
+void setup_wifi() {
+  delay(10);
+  Serial.println();
+  Serial.print("[WiFi] Menghubungkan ke ");
+  Serial.println(ssid);
+
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(ssid, password);
+
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(300);
+    Serial.print(".");
+  }
+
+  Serial.println();
+  Serial.println("[WiFi] Terhubung!");
+  Serial.print("[WiFi] IP Address: ");
+  Serial.println(WiFi.localIP());
+}
+
+void reconnect_mqtt() {
+  while (!client.connected()) {
+    Serial.print("[MQTT] Menghubungkan ke broker: ");
+    Serial.print(mqtt_server);
+    Serial.print("...");
+
+    String clientId = "ESP32_BMS_Wokwi_" + String(random(0xffff), HEX);
+
+    if (client.connect(clientId.c_str())) {
+      Serial.println(" Berhasil terhubung!");
+      Serial.print("[MQTT] Siap publish ke topic: ");
+      Serial.println(mqtt_topic);
+    } else {
+      Serial.print(" Gagal, rc=");
+      Serial.print(client.state());
+      Serial.println(" (Coba lagi dalam 2 detik)");
+      delay(2000);
+    }
+  }
+}
 
 void setup() {
-  // Samakan Baud Rate dengan setting di Dashboard WPF (default 115200)
   Serial.begin(115200);
   randomSeed(analogRead(0));
+
+  Serial.println("\n==========================================");
+  Serial.println("  BMS TELEMETRY ESP32 SIMULATION (WOKWI) ");
+  Serial.println("==========================================");
+
+  setup_wifi();
+  client.setServer(mqtt_server, mqtt_port);
 }
 
 void loop() {
-  unsigned long currentTime = millis();
+  // Pastikan koneksi WiFi & MQTT tetap aktif
+  if (WiFi.status() != WL_CONNECTED) {
+    setup_wifi();
+  }
+  if (!client.connected()) {
+    reconnect_mqtt();
+  }
+  client.loop();
 
+  unsigned long currentTime = millis();
   if (currentTime - lastSendTime >= sendInterval) {
     lastSendTime = currentTime;
 
-    // 1. Simulasikan fluktuasi sensor yang realistis
+    // 1. Simulasikan fluktuasi sensor baterai secara dinamis
     float noiseV = (random(-15, 16)) / 100.0;     // Fluktuasi ±0.15V
     voltage += noiseV;
     if (voltage < 42.0) voltage = 42.0;
@@ -52,34 +128,32 @@ void loop() {
     if (temperature < 20.0) temperature = 20.0;
     if (temperature > 55.0) temperature = 55.0;
 
-    // SOC bergerak perlahan mengikuti arus
-    soc += (currentVal * 0.002);
-    if (soc < 5.0)  soc = 5.0;
+    // 2. Deteksi Kapasitas (Ah) & SOC bergerak mengikuti arus
+    // Rumus Coulomb Counting sederhana: Ah = Ah + (I * dt)
+    capacityAh += (currentVal * 0.002);
+    if (capacityAh < 5.0) capacityAh = 5.0;
+    if (capacityAh > nominalCapacity) capacityAh = nominalCapacity;
+
+    soc = (capacityAh / nominalCapacity) * 100.0;
+    if (soc < 5.0) soc = 5.0;
     if (soc > 100.0) soc = 100.0;
 
-    // SOH berkurang sangat lambat seiring siklus
-    soh -= 0.0001;
-    if (soh < 60.0) soh = 60.0;
+    // 3. Format Payload JSON (Tanpa SOH, digantikan dengan Ah)
+    // Contoh: {"v":48.60,"i":14.50,"t":31.2,"soc":86.0,"ah":86.0}
+    char payload[128];
+    snprintf(payload, sizeof(payload),
+             "{\"v\":%.2f,\"i\":%.2f,\"t\":%.1f,\"soc\":%.1f,\"ah\":%.1f}",
+             voltage, currentVal, temperature, soc, capacityAh);
 
-    /*
-     * FORMAT PENGIRIMAN:
-     * Dashboard WPF kita secara otomatis mengenali 3 format:
-     * - Opsi A (JSON): {"v":48.6,"i":14.5,"t":31.2,"soc":86.0,"soh":97.8}
-     * - Opsi B (Key-Value): V:48.6,I:14.5,T:31.2,SOC:86.0,SOH:97.8
-     * - Opsi C (CSV): 48.6,14.5,31.2,86.0,97.8
-     *
-     * Di sini kita gunakan format JSON standar industri:
-     */
-    Serial.print("{\"v\":");
-    Serial.print(voltage, 2);
-    Serial.print(",\"i\":");
-    Serial.print(currentVal, 2);
-    Serial.print(",\"t\":");
-    Serial.print(temperature, 1);
-    Serial.print(",\"soc\":");
-    Serial.print(soc, 1);
-    Serial.print(",\"soh\":");
-    Serial.print(soh, 1);
-    Serial.println("}");
+    // 4. Publish ke MQTT Broker
+    bool published = client.publish(mqtt_topic, payload);
+
+    // 5. Cetak juga ke Serial Monitor Wokwi
+    if (published) {
+      Serial.print("[MQTT PUBLISH] ");
+    } else {
+      Serial.print("[MQTT FAIL] ");
+    }
+    Serial.println(payload);
   }
 }

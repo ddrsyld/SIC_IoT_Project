@@ -271,51 +271,80 @@
                                     CornerRadius="4" 
                                     Padding="6,2" 
                                     VerticalAlignment="Center">
-                                <TextBlock Text="RS-232 / WOKWI" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource FgSecondary}" />
+                                <TextBlock Text="MQTT / WOKWI / SERIAL" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource FgSecondary}" />
                             </Border>
                         </StackPanel>
-                        <TextBlock Text="Battery Management &amp; Health Monitoring System" 
+                        <TextBlock Text="Battery Management &amp; Capacity (Ah) Monitoring System" 
                                    FontSize="11" 
                                    Foreground="{DynamicResource FgSecondary}" 
                                    Margin="0,2,0,0" />
                     </StackPanel>
                 </StackPanel>
 
-                <!-- Center-Right: Serial Port Selection & Connection -->
+                <!-- Center-Right: Mode Selector, MQTT / Serial Controls & Connection -->
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,16,0">
-                    <!-- Port Label & Dropdown -->
-                    <StackPanel Orientation="Horizontal" Margin="0,0,8,0" VerticalAlignment="Center">
-                        <Path Data="{StaticResource IconSerial}" 
-                              Fill="{DynamicResource FgSecondary}" 
-                              Width="14" Height="14" 
-                              Stretch="Uniform" 
-                              Margin="0,0,6,0" />
-                        <ComboBox Width="130"
+                    <!-- Connection Mode Selector -->
+                    <ComboBox Width="145"
+                              ItemsSource="{Binding ConnectionModes}"
+                              SelectedItem="{Binding SelectedConnectionMode}"
+                              Style="{StaticResource MonoComboBoxStyle}"
+                              Margin="0,0,8,0"
+                              ToolTip="Pilih Mode Koneksi: MQTT (Wokwi / IoT) atau SERIAL (COM)" />
+
+                    <!-- 1. MQTT Controls (Visible when IsMqttMode) -->
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center"
+                                Visibility="{Binding IsMqttMode, Converter={StaticResource BoolToVisibilityConverter}}">
+                        <!-- Broker Input / Dropdown -->
+                        <ComboBox Width="135"
+                                  IsEditable="True"
+                                  ItemsSource="{Binding AvailableBrokers}"
+                                  Text="{Binding MqttBroker, Mode=TwoWay}"
+                                  Style="{StaticResource MonoComboBoxStyle}"
+                                  Margin="0,0,6,0"
+                                  ToolTip="Alamat Broker MQTT (default: broker.emqx.io)" />
+                        <!-- Topic Input -->
+                        <TextBox Width="120" Height="34"
+                                 Text="{Binding MqttTopic, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                 Background="{DynamicResource BgCardAlt}"
+                                 Foreground="{DynamicResource FgPrimary}"
+                                 BorderBrush="{DynamicResource BorderCard}"
+                                 BorderThickness="1"
+                                 Padding="8,6"
+                                 FontSize="11"
+                                 VerticalContentAlignment="Center"
+                                 Margin="0,0,12,0"
+                                 ToolTip="Topic MQTT (default: sic/bms/telemetry)" />
+                    </StackPanel>
+
+                    <!-- 2. Serial Controls (Visible when IsSerialMode) -->
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center"
+                                Visibility="{Binding IsSerialMode, Converter={StaticResource BoolToVisibilityConverter}}">
+                        <!-- Port Dropdown -->
+                        <ComboBox Width="110"
                                   ItemsSource="{Binding AvailablePorts}"
                                   SelectedItem="{Binding SelectedPort}"
                                   Style="{StaticResource MonoComboBoxStyle}"
+                                  Margin="0,0,6,0"
                                   ToolTip="Pilih Port Serial Virtual (misal COM1 atau COM2)" />
+                        <!-- Refresh Ports Button -->
+                        <Button Click="BtnRefreshPorts_Click"
+                                Style="{StaticResource MonoButtonStyle}" 
+                                Padding="8,8" 
+                                Margin="0,0,6,0"
+                                ToolTip="Segarkan Daftar Port COM">
+                            <Path Data="{StaticResource IconRefresh}" 
+                                  Fill="{DynamicResource FgPrimary}" 
+                                  Width="12" Height="12" 
+                                  Stretch="Uniform" />
+                        </Button>
+                        <!-- Baud Rate Dropdown -->
+                        <ComboBox Width="85"
+                                  ItemsSource="{Binding BaudRates}"
+                                  SelectedItem="{Binding SelectedBaudRate}"
+                                  Style="{StaticResource MonoComboBoxStyle}"
+                                  Margin="0,0,12,0"
+                                  ToolTip="Baud Rate Serial" />
                     </StackPanel>
-
-                    <!-- Refresh Ports Button -->
-                    <Button Click="BtnRefreshPorts_Click"
-                            Style="{StaticResource MonoButtonStyle}" 
-                            Padding="8,8" 
-                            Margin="0,0,8,0"
-                            ToolTip="Segarkan Daftar Port COM">
-                        <Path Data="{StaticResource IconRefresh}" 
-                              Fill="{DynamicResource FgPrimary}" 
-                              Width="12" Height="12" 
-                              Stretch="Uniform" />
-                    </Button>
-
-                    <!-- Baud Rate Dropdown -->
-                    <ComboBox Width="95"
-                              ItemsSource="{Binding BaudRates}"
-                              SelectedItem="{Binding SelectedBaudRate}"
-                              Style="{StaticResource MonoComboBoxStyle}"
-                              Margin="0,0,12,0"
-                              ToolTip="Baud Rate Serial" />
 
                     <!-- Connect / Disconnect Button -->
                     <Button Click="BtnConnect_Click"
@@ -562,7 +591,7 @@
                 </StackPanel>
             </Border>
 
-            <!-- 5. STATE OF HEALTH (SOH) -->
+            <!-- 5. DETEKSI KAPASITAS (Ah) -->
             <Border Grid.Column="8" 
                     Background="{DynamicResource BgCard}"
                     BorderBrush="{DynamicResource BorderCard}"
@@ -572,35 +601,35 @@
                 <StackPanel>
                     <Grid Margin="0,0,0,10">
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                            <Path Data="{StaticResource IconHeart}" 
+                            <Path Data="{StaticResource IconBattery}" 
                                   Fill="{DynamicResource FgPrimary}" 
                                   Width="14" Height="14" 
                                   Stretch="Uniform" 
                                   Margin="0,0,8,0" />
-                            <TextBlock Text="SOH (HEALTH)" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource FgSecondary}" />
+                            <TextBlock Text="DETEKSI KAPASITAS" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource FgSecondary}" />
                         </StackPanel>
-                        <TextBlock Text="{Binding HealthGrade}" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource FgSecondary}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                        <TextBlock Text="NOMINAL 100 Ah" FontSize="10" Foreground="{DynamicResource FgDimmed}" HorizontalAlignment="Right" VerticalAlignment="Center" />
                     </Grid>
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Bottom">
-                        <TextBlock Text="{Binding SOH, Converter={StaticResource TelemetryFormatConverter}, ConverterParameter=F1}" 
+                        <TextBlock Text="{Binding CapacityAh, Converter={StaticResource TelemetryFormatConverter}, ConverterParameter=F1}" 
                                    FontSize="30" FontWeight="Black" />
-                        <TextBlock Text="%" FontSize="14" FontWeight="Bold" Foreground="{DynamicResource FgSecondary}" Margin="6,0,0,4" VerticalAlignment="Bottom" />
+                        <TextBlock Text="Ah" FontSize="14" FontWeight="Bold" Foreground="{DynamicResource FgSecondary}" Margin="6,0,0,4" VerticalAlignment="Bottom" />
                     </StackPanel>
-                    <!-- Mini Horizontal Health Level Track -->
+                    <!-- Mini Horizontal Capacity Level Track -->
                     <Grid Height="4" Margin="0,12,0,8">
                         <Border Background="{DynamicResource GaugeTrackBrush}" CornerRadius="2" />
                         <Border HorizontalAlignment="Left" Background="{DynamicResource FgPrimary}" CornerRadius="2">
                             <Border.Width>
                                 <MultiBinding Converter="{StaticResource PercentageToWidthConverter}">
-                                    <Binding Path="SOH" />
+                                    <Binding Path="CapacityPercentage" />
                                     <Binding RelativeSource="{RelativeSource AncestorType=Grid}" Path="ActualWidth" />
                                 </MultiBinding>
                             </Border.Width>
                         </Border>
                     </Grid>
                     <Grid>
-                        <TextBlock Text="DEGRADASI SEL" FontSize="10" Foreground="{DynamicResource FgDimmed}" HorizontalAlignment="Left" />
-                        <TextBlock Text="SANGAT PRIMA" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource FgSecondary}" HorizontalAlignment="Right" />
+                        <TextBlock Text="STATUS KAPASITAS" FontSize="10" Foreground="{DynamicResource FgDimmed}" HorizontalAlignment="Left" />
+                        <TextBlock Text="{Binding CapacityStatus}" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource FgSecondary}" HorizontalAlignment="Right" />
                     </Grid>
                 </StackPanel>
             </Border>
@@ -763,7 +792,7 @@
                                 </StackPanel>
                             </Border>
 
-                            <!-- SOH Radial Gauge Card -->
+                            <!-- Capacity Radial Gauge Card -->
                             <Border Grid.Row="2"
                                     Background="{DynamicResource BgCardAlt}"
                                     BorderBrush="{DynamicResource BorderCard}"
@@ -775,7 +804,7 @@
                                         <!-- Radial Arc -->
                                         <ColumnDefinition Width="90" />
                                         <ColumnDefinition Width="8" />
-                                        <!-- SOH Details -->
+                                        <!-- Capacity Details -->
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
 
@@ -801,7 +830,7 @@
                                               StrokeEndLineCap="Round">
                                             <Path.Data>
                                                 <MultiBinding Converter="{StaticResource PercentageToArcConverter}">
-                                                    <Binding Path="SOH" />
+                                                    <Binding Path="CapacityPercentage" />
                                                     <Binding Source="85.0" />
                                                     <Binding Source="7.0" />
                                                 </MultiBinding>
@@ -809,17 +838,17 @@
                                         </Path>
                                         <!-- Center Readout -->
                                         <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,-2,0,0">
-                                            <TextBlock Text="{Binding SOH, Converter={StaticResource TelemetryFormatConverter}, ConverterParameter=F0}" 
-                                                       FontSize="16" FontWeight="Black" HorizontalAlignment="Center" />
-                                            <TextBlock Text="%" FontSize="8" FontWeight="Bold" Foreground="{DynamicResource FgSecondary}" HorizontalAlignment="Center" />
+                                            <TextBlock Text="{Binding CapacityAh, Converter={StaticResource TelemetryFormatConverter}, ConverterParameter=F1}" 
+                                                       FontSize="15" FontWeight="Black" HorizontalAlignment="Center" />
+                                            <TextBlock Text="Ah" FontSize="8" FontWeight="Bold" Foreground="{DynamicResource FgSecondary}" HorizontalAlignment="Center" />
                                         </StackPanel>
                                     </Grid>
 
-                                    <!-- SOH Info Beside Arc -->
+                                    <!-- Capacity Info Beside Arc -->
                                     <StackPanel Grid.Column="2" VerticalAlignment="Center">
-                                        <TextBlock Text="STATE OF HEALTH" FontSize="9" FontWeight="Bold" Foreground="{DynamicResource FgDimmed}" />
-                                        <TextBlock Text="{Binding HealthGrade}" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource FgPrimary}" Margin="0,2,0,4" />
-                                        <TextBlock Text="Kondisi sel baterai sangat prima" FontSize="9" Foreground="{DynamicResource FgSecondary}" TextWrapping="Wrap" />
+                                        <TextBlock Text="DETEKSI KAPASITAS" FontSize="9" FontWeight="Bold" Foreground="{DynamicResource FgDimmed}" />
+                                        <TextBlock Text="{Binding CapacityStatus}" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource FgPrimary}" Margin="0,2,0,4" />
+                                        <TextBlock Text="Kapasitas pack aktif terukur dari nominal 100 Ah" FontSize="9" Foreground="{DynamicResource FgSecondary}" TextWrapping="Wrap" />
                                     </StackPanel>
                                 </Grid>
                             </Border>
@@ -835,8 +864,9 @@
                             Padding="12,8">
                         <Grid VerticalAlignment="Center">
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="STATUS PROTOKOL:" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource FgDimmed}" />
-                                <TextBlock Text=" RS-232 ASYNC (8N1)" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource FgPrimary}" />
+                                <TextBlock Text="PROTOKOL:" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource FgDimmed}" />
+                                <TextBlock Text=" " />
+                                <TextBlock Text="{Binding SelectedConnectionMode}" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource FgPrimary}" />
                             </StackPanel>
                             <TextBlock Text="{Binding StatusMessage}" FontSize="10" Foreground="{DynamicResource FgSecondary}" HorizontalAlignment="Right" TextTrimming="CharacterEllipsis" MaxWidth="220" />
                         </Grid>
@@ -991,7 +1021,7 @@
                               Width="13" Height="13" 
                               Stretch="Uniform" 
                               Margin="0,0,8,0" />
-                        <TextBlock Text="TERMINAL LOG RAW RS-232 (TELEMETRY STREAM)" FontWeight="Bold" FontSize="11" Foreground="{DynamicResource FgSecondary}" />
+                        <TextBlock Text="TERMINAL LOG RAW TELEMETRY (MQTT / RS-232 STREAM)" FontWeight="Bold" FontSize="11" Foreground="{DynamicResource FgSecondary}" />
                         <Border Margin="10,0,0,0" Background="{DynamicResource AccentMuted}" CornerRadius="3" Padding="5,1">
                             <TextBlock Text="JSON / CSV / KEY-VALUE AUTO-DETECT" FontSize="9" FontWeight="Bold" Foreground="{DynamicResource FgSecondary}" />
                         </Border>
