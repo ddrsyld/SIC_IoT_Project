@@ -1,137 +1,103 @@
-# 🔋 BMS Telemetry Dashboard & Panduan Koneksi ke Wokwi
+# Panduan Setup & Integrasi Wokwi
 
-Halo! Project ini adalah aplikasi desktop (WPF .NET) untuk memonitor kondisi baterai secara *real-time* (Tegangan, Arus, Suhu, SOC, dan SOH). Tampilannya mengusung tema monokrom modern (lengkap dengan Dark/Light mode) serta animasi baterai yang bisa bergerak dan berubah warna dinamis dari **Hijau $\to$ Kuning $\to$ Merah**.
-
-Panduan ini dibuat supaya kamu bisa langsung menjalankan dashboard ini di laptop dan menghubungkannya dengan simulasi rangkaian yang kamu buat di **Wokwi**.
+Dokumen ini berisi langkah-langkah untuk menjalankan dashboard monitoring baterai dan menghubungkannya dengan simulator Wokwi melalui port serial virtual.
 
 ---
 
-## 💡 Konsep Singkat (Cara Kerjanya)
+## Kebutuhan Sistem
 
-Karena Wokwi jalan di browser dan dashboard ini adalah aplikasi desktop, keduanya dihubungkan menggunakan **Kabel Virtual (Virtual COM Port Pair)** di laptop:
-
-```
-[ Wokwi (Chrome / Edge) ]
-         │ (Web Serial API)
-         ▼
-    [ COM2 ]  <─── Sepasang COM Port Virtual (com0com / VSPD)
-         ▲
-         │ (System.IO.Ports)
-[ Dashboard WPF (.NET) ]
-```
-> Apapun yang dikirim oleh Arduino/ESP32 di Wokwi ke `COM2`, otomatis diterima oleh Dashboard WPF di `COM1`.
+1. **.NET SDK** (versi 9.0 atau 10.0)
+2. **Browser**: Google Chrome atau Microsoft Edge (mendukung Web Serial API)
+3. **Emulator Virtual COM Port**: [com0com](https://sourceforge.net/projects/com0com/) atau *Virtual Serial Port Driver (VSPD)*
 
 ---
 
-## 🛠️ Persiapan Awal
+## 1. Setup Virtual COM Port
 
-Sebelum mulai, pastikan laptop kamu sudah ada:
-1. **.NET SDK** (.NET 10 atau .NET 9). Cek di CMD/Terminal dengan ketik: `dotnet --version`.
-2. **Browser Google Chrome atau Microsoft Edge** (wajib, karena fitur serial Wokwi hanya jalan di browser Chromium).
-3. **Software Virtual COM Port**, salah satu dari:
-   - [com0com](https://sourceforge.net/projects/com0com/) (*Gratis & Open Source*)
-   - Atau *Virtual Serial Port Driver (VSPD)* / *Eterlogic VSPE*.
+1. Buka software emulator port virtual (misal: com0com).
+2. Buat sepasang port virtual: **`COM1`** dan **`COM2`**.
+3. Pastikan kedua port berstatus aktif.
 
 ---
 
-## 🚀 Langkah 1: Buat Pasangan Port COM Virtual
+## 2. Setup Wokwi
 
-1. Buka aplikasi **com0com** atau **VSPD**.
-2. Buat satu pasang port baru, misalnya: **`COM1`** dan **`COM2`**.
-3. Pastikan status keduanya aktif / *connected*.
+1. Buka sketch simulasi Arduino/ESP32 di Google Chrome atau Microsoft Edge.
+2. Pastikan sketch mengirim data sensor melalui Serial dengan baud rate `115200` dan diakhiri `\r\n` (`println`).
 
----
-
-## 💻 Langkah 2: Setting di Wokwi (Kodingan Arduino / ESP32)
-
-Dashboard ini pintar dan sudah bisa baca 3 format data sekaligus (JSON, CSV, atau Key-Value). Format yang paling direkomendasikan adalah **JSON**.
-
-### Contoh Kodingan Sketch Wokwi:
-Kamu bisa copas contoh kodingan ini ke sketch Wokwi kamu (tersedia juga di folder `wokwi_sketch/bms_wokwi_simulation.ino`):
+### Contoh Kode Sketch (JSON Format)
 
 ```cpp
 void setup() {
-  // Samakan baud rate dengan dashboard (default 115200)
   Serial.begin(115200);
 }
 
 void loop() {
-  // 1. Data bacaan sensor kamu
-  float voltage = 48.5;       // Tegangan (Volt)
-  float current = 12.4;       // Arus (+ = ngecas/charge, - = kepake/discharge)
-  float temperature = 31.2;   // Suhu (°C)
-  float soc = 86.0;           // Kapasitas sisa baterai (0 - 100%)
-  float soh = 97.5;           // Kesehatan sel baterai (0 - 100%)
+  float v = 48.50;    // Tegangan (Volt)
+  float i = 12.40;    // Arus (Ampere)
+  float t = 31.2;     // Suhu (°C)
+  float soc = 86.0;   // Kapasitas / SOC (%)
+  float soh = 97.5;   // Kesehatan / SOH (%)
 
-  // 2. Kirim ke Serial dalam format JSON (wajib diakhiri println)
+  // Kirim data format JSON
   Serial.print("{\"v\":");
-  Serial.print(voltage, 2);
+  Serial.print(v, 2);
   Serial.print(",\"i\":");
-  Serial.print(current, 2);
+  Serial.print(i, 2);
   Serial.print(",\"t\":");
-  Serial.print(temperature, 1);
+  Serial.print(t, 1);
   Serial.print(",\"soc\":");
   Serial.print(soc, 1);
   Serial.print(",\"soh\":");
   Serial.print(soh, 1);
   Serial.println("}");
 
-  delay(200); // Kirim setiap 200ms (5x per detik)
+  delay(200);
 }
 ```
 
-### Cara Connect Wokwi ke Port COM Virtual:
-1. Jalankan simulasi di Wokwi (klik tombol **Play/Start Simulation** hijau).
-2. Tekan tombol **F1** di keyboard saat kursor ada di area Wokwi (atau klik menu titik tiga di panel Serial Monitor Wokwi).
-3. Ketik dan pilih **"Connect to Serial Port"**.
-4. Browser akan memunculkan popup daftar COM port $\to$ pilih **`COM2`** lalu klik **Connect**.
+3. Jalankan simulasi di Wokwi.
+4. Tekan **F1** di area simulasi, lalu pilih **"Connect to Serial Port"**.
+5. Pilih port virtual **`COM2`** lalu klik **Connect**.
 
 ---
 
-## 🖥️ Langkah 3: Menjalankan Dashboard Monitoring
+## 3. Menjalankan Dashboard
 
-1. Buka terminal (PowerShell / Command Prompt) di folder project ini:
+1. Buka terminal pada direktori project:
    ```bash
    cd DashboardMonitorBateraiManajemen
    dotnet run
    ```
-   *(Atau bisa juga buka file solusinya lewat Visual Studio lalu tekan F5 / Play).*
-
-2. Di tampilan Dashboard:
-   - Pilih **Port COM**: pilih pasangannya, yaitu **`COM1`** (kalau belum muncul, klik tombol ikon putar di sebelahnya untuk refresh).
-   - Pilih **Baud Rate**: **`115200`** (harus sama persis dengan `Serial.begin` di Wokwi).
-   - Klik tombol hitam **"HUBUNGKAN"**.
-
-3. **Selesai!** Status akan berubah menjadi **TERKONEKSI (ONLINE)**, data Wokwi akan langsung masuk secara live, grafik waveform bergerak, dan visual baterai akan terisi otomatis.
+2. Pada antarmuka aplikasi:
+   - Pilih Port: **`COM1`** (pasangan dari `COM2` yang dipakai Wokwi).
+   - Pilih Baud Rate: **`115200`**.
+   - Klik tombol **HUBUNGKAN**.
+3. Data telemetri dari Wokwi akan langsung terbaca pada dashboard.
 
 ---
 
-## 🎨 Fitur Keren di Dashboard Ini
+## Format Data yang Didukung
 
-- **Animasi Baterai Vertikal:** Level cairan baterai naik-turun otomatis sesuai nilai SOC%. Warnanya otomatis berubah:
-  - 🟢 **Hijau**: Baterai penuh / aman (> 50%).
-  - 🟡 **Kuning/Oranye**: Baterai mulai berkurang (20% - 50%).
-  - 🔴 **Merah**: Baterai kritis / hampir habis (< 20%).
-  - Muncul ikon petir otomatis kalau arusnya positif (lagi charging).
-- **Dual Arc Gauge:** Meteran melingkar untuk State of Charge (SOC) dan State of Health (SOH).
-- **Waveform Grafik Real-Time:** Grafik kurva 60 detik terakhir untuk melihat fluktuasi Tegangan (V), Arus (A), dan Suhu (°C).
-- **Dark / Light Mode:** Klik ikon **Bulan / Matahari** di pojok kanan atas buat ganti tema.
-- **Mode Simulasi Demo:** Kalau lagi ga buka Wokwi tapi mau pamerin/ngetes UI-nya ke orang lain, cukup klik tombol **"SIMULASI DEMO"** di atas. Semua sensor bakal bergerak otomatis dengan data simulasi yang realistis.
-- **Terminal Log Raw RS-232:** Di bagian bawah ada log terminal live buat ngecek data mentah apa yang lagi dikirim Wokwi. Bisa diminimize/expand.
+Aplikasi otomatis mengenali format berikut dari Serial:
 
----
-
-## ❓ Troubleshooting (Kendala yang Sering Terjadi)
-
-* **Port COM ga muncul di dropdown?**
-  Pastikan software virtual COM port sudah dijalankan dan port pair sudah dibuat, lalu klik tombol **Refresh (ikon putar)** di samping dropdown COM.
-* **Wokwi ga bisa connect ke port serial?**
-  Pastikan kamu pakai browser **Google Chrome** atau **Microsoft Edge**. Browser lain seperti Mozilla Firefox belum mendukung *Web Serial API*.
-* **Dashboard sudah 'Terkoneksi' tapi angkanya ga berubah?**
-  1. Cek apakah Baud Rate di Wokwi (`Serial.begin(115200)`) sudah sama dengan di Dashboard (`115200`).
-  2. Pastikan pengiriman data di Wokwi pakai `Serial.println()` (mengandung baris baru/enter).
-  3. Cek kotak "Terminal Log Raw" di bagian bawah dashboard untuk melihat apakah teks dari Wokwi berhasil masuk.
+1. **JSON** (Disarankan):
+   ```json
+   {"v": 48.5, "i": 12.4, "t": 31.2, "soc": 86.0, "soh": 97.5}
+   ```
+2. **Key-Value**:
+   ```
+   V:48.5,I:12.4,T:31.2,SOC:86.0,SOH:97.5
+   ```
+3. **CSV**:
+   ```
+   48.5,12.4,31.2,86.0,97.5
+   ```
+   *(Urutan: Tegangan, Arus, Suhu, SOC, SOH)*
 
 ---
 
-*Selamat mencoba & semoga lancar pengujiannya! Kalau ada ide fitur tambahan, silakan dikembangkan bareng-bareng.* 🚀
+## Catatan Tambahan
+
+- Jika port serial belum terhubung ke hardware/Wokwi, tombol **SIMULASI DEMO** dapat digunakan untuk menguji pergerakan UI dan indikator visual.
+- Tombol **ikon Matahari/Bulan** di sudut kanan atas digunakan untuk beralih antara Dark Mode dan Light Mode.
