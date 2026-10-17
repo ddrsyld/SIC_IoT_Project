@@ -164,8 +164,19 @@ namespace DashboardMonitorBateraiManajemen.Services
                     double i = GetJsonDouble(root, "i", "current", "arus");
                     double t = GetJsonDouble(root, "t", "temp", "temperature", "suhu");
                     double soc = GetJsonDouble(root, "soc", "charge");
-                    double ah = GetJsonDouble(root, "ah", "cap", "capacity", "ampere_hour", "soh");
-                    if (ah <= 0 && soc > 0) ah = Math.Round((soc / 100.0) * 100.0, 1);
+                    double ah = GetJsonDouble(root, "ah", "cap", "capacity", "ampere_hour", "discharged", "soh");
+
+                    bool relay = true;
+                    if (root.TryGetProperty("relay", out var rVal))
+                    {
+                        relay = rVal.ValueKind == JsonValueKind.Number ? rVal.GetInt32() != 0 : (rVal.ValueKind == JsonValueKind.True);
+                    }
+
+                    bool fault = false;
+                    if (root.TryGetProperty("fault", out var fVal))
+                    {
+                        fault = fVal.ValueKind == JsonValueKind.Number ? fVal.GetInt32() != 0 : (fVal.ValueKind == JsonValueKind.True);
+                    }
 
                     return new BatteryTelemetry
                     {
@@ -173,7 +184,9 @@ namespace DashboardMonitorBateraiManajemen.Services
                         Current = Math.Round(i, 2),
                         Temperature = Math.Round(t, 1),
                         SOC = Math.Clamp(Math.Round(soc, 1), 0, 100),
-                        CapacityAh = Math.Round(ah, 2),
+                        CapacityAh = Math.Round(ah, 3),
+                        RelayActive = relay,
+                        IsFault = fault,
                         Timestamp = DateTime.Now
                     };
                 }
@@ -183,7 +196,8 @@ namespace DashboardMonitorBateraiManajemen.Services
                 }
             }
 
-            // 2. Coba Parsing Key-Value: V:48.2,I:12.5,T:32.1,SOC:87,AH:87 atau V=48.2;I=...
+            // 2. Coba Parsing Key-Value / Format Teks sketch.ino:
+            // "Tegangan: 13.20 V | Arus: 2.10 A | Suhu: 28.5 C | SOC: 70.0% | Ah keluar: 0.123 | Status: NORMAL"
             if (raw.Contains(':') || raw.Contains('='))
             {
                 try
@@ -192,11 +206,13 @@ namespace DashboardMonitorBateraiManajemen.Services
                     double i = ExtractRegexNumber(raw, @"(?:I|CURRENT|ARUS)\s*[:=]\s*([+-]?\d+(?:\.\d+)?)");
                     double t = ExtractRegexNumber(raw, @"(?:T|TEMP|TEMPERATURE|SUHU)\s*[:=]\s*([+-]?\d+(?:\.\d+)?)");
                     double soc = ExtractRegexNumber(raw, @"(?:SOC|CHARGE)\s*[:=]\s*([+-]?\d+(?:\.\d+)?)");
-                    double ah = ExtractRegexNumber(raw, @"(?:AH|CAP|CAPACITY|AMPERE_HOUR|SOH)\s*[:=]\s*([+-]?\d+(?:\.\d+)?)");
-                    if (ah <= 0 && soc > 0) ah = Math.Round((soc / 100.0) * 100.0, 1);
+                    double ah = ExtractRegexNumber(raw, @"(?:AH|AH\s*KELUAR|CAP|CAPACITY|DISCHARGED|SOH)\s*[:=]\s*([+-]?\d+(?:\.\d+)?)");
+
+                    bool isFault = raw.Contains("FAULT", StringComparison.OrdinalIgnoreCase);
+                    bool relayActive = !isFault;
 
                     // Minimal salah satu parameter penting ditemukan
-                    if (v > 0 || soc > 0 || ah > 0)
+                    if (v > 0 || soc > 0 || ah > 0 || Math.Abs(i) > 0)
                     {
                         return new BatteryTelemetry
                         {
@@ -204,7 +220,9 @@ namespace DashboardMonitorBateraiManajemen.Services
                             Current = Math.Round(i, 2),
                             Temperature = Math.Round(t, 1),
                             SOC = Math.Clamp(Math.Round(soc, 1), 0, 100),
-                            CapacityAh = Math.Round(ah, 2),
+                            CapacityAh = Math.Round(ah, 3),
+                            RelayActive = relayActive,
+                            IsFault = isFault,
                             Timestamp = DateTime.Now
                         };
                     }

@@ -1,0 +1,21 @@
+  
+{
+  "name": "Voltage Sensor 25V",
+  "author": "Custom",
+  "pins": [
+    "VCC",
+    "GND",
+    "S",
+    "VIN"
+  ],
+  "controls": [
+    {
+      "id": "voltage",
+      "label": "Tegangan Input (V)",
+      "type": "range",
+      "min": 0,
+      "max": 25,
+      "step": 0.01
+    }
+  ]
+}

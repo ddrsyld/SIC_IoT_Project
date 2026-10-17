@@ -62,13 +62,13 @@ namespace DashboardMonitorBateraiManajemen.ViewModels
             _chartRefreshTimer.Tick += (s, e) => UpdateChartPoints();
             _chartRefreshTimer.Start();
 
-            // Seed initial history
+            // Seed initial history untuk 12V LiFePO4
             InitializeDummyHistory();
         }
 
-        #region Properties - Sensor Data
+        #region Properties - Sensor Data (12V LiFePO4)
 
-        private double _voltage = 48.60;
+        private double _voltage = 13.20;
         public double Voltage
         {
             get => _voltage;
@@ -82,7 +82,7 @@ namespace DashboardMonitorBateraiManajemen.ViewModels
             }
         }
 
-        private double _current = 14.80;
+        private double _current = 2.50;
         public double Current
         {
             get => _current;
@@ -92,13 +92,14 @@ namespace DashboardMonitorBateraiManajemen.ViewModels
                 {
                     OnPropertyChanged(nameof(Power));
                     OnPropertyChanged(nameof(OperatingMode));
+                    OnPropertyChanged(nameof(IsDischarging));
                     OnPropertyChanged(nameof(IsCharging));
                     UpdateExtrema();
                 }
             }
         }
 
-        private double _temperature = 31.4;
+        private double _temperature = 28.5;
         public double Temperature
         {
             get => _temperature;
@@ -112,14 +113,14 @@ namespace DashboardMonitorBateraiManajemen.ViewModels
             }
         }
 
-        private double _soc = 86.0;
+        private double _soc = 70.0;
         public double SOC
         {
             get => _soc;
             set => SetField(ref _soc, Math.Clamp(value, 0, 100));
         }
 
-        private double _capacityAh = 86.0;
+        private double _capacityAh = 0.450; // Ah keluar (Coulomb Counting terakumulasi)
         public double CapacityAh
         {
             get => _capacityAh;
@@ -127,6 +128,7 @@ namespace DashboardMonitorBateraiManajemen.ViewModels
             {
                 if (SetField(ref _capacityAh, Math.Clamp(value, 0, 1000)))
                 {
+                    OnPropertyChanged(nameof(RemainingAh));
                     OnPropertyChanged(nameof(CapacityPercentage));
                     OnPropertyChanged(nameof(CapacityStatus));
                 }
@@ -134,22 +136,53 @@ namespace DashboardMonitorBateraiManajemen.ViewModels
         }
 
         public double NominalCapacityAh => 100.0; // Kapasitas Nominal Pack (100 Ah)
-        public double CapacityPercentage => Math.Clamp(Math.Round((CapacityAh / NominalCapacityAh) * 100.0, 1), 0, 100);
+        public double RemainingAh => Math.Max(0.0, Math.Round(NominalCapacityAh - CapacityAh, 2));
+        public double CapacityPercentage => Math.Clamp(Math.Round((RemainingAh / NominalCapacityAh) * 100.0, 1), 0, 100);
 
         public double Power => Math.Round(Voltage * Current, 2);
-        public bool IsCharging => Current > 0.05;
-        public string OperatingMode => IsCharging ? "CHARGING (+)" : (Current < -0.05 ? "DISCHARGING (-)" : "IDLE (0.0 A)");
-        public string CapacityStatus => CapacityAh >= 80 ? "OPTIMAL (> 80 Ah)" : (CapacityAh >= 40 ? "NORMAL (40-80 Ah)" : "RENDAH (< 40 Ah)");
-        public string ThermalStatus => Temperature <= 45 ? "NORMAL" : (Temperature <= 60 ? "WARM" : "HIGH TEMP");
+        public bool IsDischarging => Current > 0.10;
+        public bool IsCharging => Current < -0.10;
+        public string OperatingMode => IsDischarging ? "DISCHARGING (+)" : (IsCharging ? "CHARGING (-)" : "STANDBY (0.0 A)");
+        public string CapacityStatus => CapacityAh >= 80 ? "TINGGI (> 80 Ah)" : (CapacityAh >= 40 ? "SEDANG (40-80 Ah)" : "NORMAL (< 40 Ah)");
+        public string ThermalStatus => Temperature <= 45 ? "NORMAL" : (Temperature <= 60 ? "HANGAT" : "THERMAL FAULT!");
 
-        // Min / Max Extrema Tracker
-        private double _minVoltage = 48.0;
+        // Status Relay & Proteksi Hardware
+        private bool _relayActive = true;
+        public bool RelayActive
+        {
+            get => _relayActive;
+            set
+            {
+                if (SetField(ref _relayActive, value))
+                {
+                    OnPropertyChanged(nameof(RelayStatusBadge));
+                }
+            }
+        }
+        public string RelayStatusBadge => RelayActive ? "RELAY: ON (TERHUBUNG)" : "RELAY: CUT-OFF (TERPUTUS)";
+
+        private bool _isFault = false;
+        public bool IsFault
+        {
+            get => _isFault;
+            set
+            {
+                if (SetField(ref _isFault, value))
+                {
+                    OnPropertyChanged(nameof(FaultStatusBadge));
+                }
+            }
+        }
+        public string FaultStatusBadge => IsFault ? "ALARM FAULT!" : "SISTEM NORMAL";
+
+        // Min / Max Extrema Tracker (Disesuaikan untuk 12V LiFePO4)
+        private double _minVoltage = 10.0;
         public double MinVoltage { get => _minVoltage; set => SetField(ref _minVoltage, value); }
 
-        private double _maxVoltage = 52.0;
+        private double _maxVoltage = 14.6;
         public double MaxVoltage { get => _maxVoltage; set => SetField(ref _maxVoltage, value); }
 
-        private double _maxCurrent = 25.0;
+        private double _maxCurrent = 20.0;
         public double MaxCurrent { get => _maxCurrent; set => SetField(ref _maxCurrent, value); }
 
         private double _maxTemperature = 35.0;
@@ -268,7 +301,7 @@ namespace DashboardMonitorBateraiManajemen.ViewModels
             ? (IsMqttMode ? "TERKONEKSI (MQTT)" : "TERKONEKSI (SERIAL)") 
             : "TERPUTUS (OFFLINE)";
 
-        private string _statusMessage = "Siap menghubungkan (Pilih MQTT untuk Wokwi atau Serial)";
+        private string _statusMessage = "Siap menghubungkan ke Wokwi (MQTT / Serial)";
         public string StatusMessage
         {
             get => _statusMessage;
@@ -398,7 +431,7 @@ namespace DashboardMonitorBateraiManajemen.ViewModels
             {
                 _simulationTimer.Start();
                 IsSimulationRunning = true;
-                StatusMessage = "Simulasi Demo aktif (Data sensor berfluktuasi)";
+                StatusMessage = "Simulasi Demo aktif (12V LiFePO4 data sensor berfluktuasi)";
             }
         }
 
@@ -452,6 +485,8 @@ namespace DashboardMonitorBateraiManajemen.ViewModels
                 Temperature = tel.Temperature;
                 SOC = tel.SOC;
                 CapacityAh = tel.CapacityAh;
+                RelayActive = tel.RelayActive;
+                IsFault = tel.IsFault;
 
                 PushHistory(Voltage, Current, Temperature);
             });
@@ -474,22 +509,46 @@ namespace DashboardMonitorBateraiManajemen.ViewModels
             });
         }
 
+        // Rumus Interpolasi SOC LiFePO4 12V (Sesuai tabel 10.0V -> 0% s/d 13.6V -> 100%)
+        public static double CalculateLiFePO4SOC(double voltage)
+        {
+            float[] vTable = [10.0f, 12.0f, 12.8f, 12.9f, 13.0f, 13.1f, 13.2f, 13.3f, 13.4f, 13.6f];
+            float[] socTable = [0.0f, 10.0f, 20.0f, 30.0f, 45.0f, 60.0f, 70.0f, 80.0f, 90.0f, 100.0f];
+
+            if (voltage <= vTable[0]) return 0.0;
+            if (voltage >= vTable[^1]) return 100.0;
+
+            for (int i = 0; i < vTable.Length - 1; i++)
+            {
+                if (voltage <= vTable[i + 1])
+                {
+                    double fraction = (voltage - vTable[i]) / (vTable[i + 1] - vTable[i]);
+                    return Math.Round(socTable[i] + fraction * (socTable[i + 1] - socTable[i]), 1);
+                }
+            }
+            return 100.0;
+        }
+
         private void SimulationTimer_Tick(object? sender, EventArgs e)
         {
-            // Menghasilkan fluktuasi sensor yang realistis
-            double deltaV = (_rand.NextDouble() - 0.48) * 0.25;
-            Voltage = Math.Round(Math.Clamp(Voltage + deltaV, 44.0, 54.6), 2);
+            // Menghasilkan fluktuasi sensor realistis untuk 12V LiFePO4 Pack
+            double deltaV = (_rand.NextDouble() - 0.49) * 0.08;
+            Voltage = Math.Round(Math.Clamp(Voltage + deltaV, 10.5, 14.2), 2);
 
-            double deltaI = (_rand.NextDouble() - 0.5) * 1.5;
-            Current = Math.Round(Math.Clamp(Current + deltaI, -30.0, 30.0), 2);
+            double deltaI = (_rand.NextDouble() - 0.5) * 0.8;
+            Current = Math.Round(Math.Clamp(Current + deltaI, -10.0, 15.0), 2);
 
-            double deltaT = (_rand.NextDouble() - 0.49) * 0.15;
-            Temperature = Math.Round(Math.Clamp(Temperature + deltaT, 20.0, 65.0), 1);
+            double deltaT = (_rand.NextDouble() - 0.49) * 0.1;
+            Temperature = Math.Round(Math.Clamp(Temperature + deltaT, 22.0, 50.0), 1);
 
-            // Deteksi Ah & SOC bergerak perlahan sesuai arus
-            double deltaAh = (Current * 0.005);
-            CapacityAh = Math.Round(Math.Clamp(CapacityAh + deltaAh, 5.0, NominalCapacityAh), 2);
-            SOC = Math.Round(Math.Clamp((CapacityAh / NominalCapacityAh) * 100.0, 5.0, 100.0), 1);
+            // SOC dihitung akurat dari kurva tegangan LiFePO4
+            SOC = CalculateLiFePO4SOC(Voltage);
+
+            // Akumulasi Ah keluar (hanya bertambah jika arus positif / discharge)
+            if (Current > 0)
+            {
+                CapacityAh = Math.Round(CapacityAh + (Current * 0.0005), 3);
+            }
 
             PacketCounter++;
             PushHistory(Voltage, Current, Temperature);
@@ -519,11 +578,15 @@ namespace DashboardMonitorBateraiManajemen.ViewModels
             var iPoints = new PointCollection();
             var tPoints = new PointCollection();
 
+            // Normalisasi rentang untuk 12V LiFePO4:
+            // Voltage (9.0V - 16.0V, rentang 7V)
+            // Current (-35A - +35A, rentang 70A)
+            // Temp (15°C - 70°C, rentang 55°C)
             for (int k = 0; k < _voltageHistory.Count; k++)
             {
                 double x = k * stepX;
 
-                double vNorm = Math.Clamp((_voltageHistory[k] - 40.0) / 20.0, 0, 1);
+                double vNorm = Math.Clamp((_voltageHistory[k] - 9.0) / 7.0, 0, 1);
                 double yV = height - (vNorm * (height - 20) + 10);
                 vPoints.Add(new Point(x, yV));
 
@@ -555,15 +618,15 @@ namespace DashboardMonitorBateraiManajemen.ViewModels
 
         private void InitializeDummyHistory()
         {
-            double baseV = 48.5;
-            double baseI = 12.0;
-            double baseT = 30.0;
+            double baseV = 13.20;
+            double baseI = 2.50;
+            double baseT = 28.5;
 
             for (int k = 0; k < MaxHistoryPoints; k++)
             {
-                double offset = Math.Sin(k * 0.15) * 1.5;
+                double offset = Math.Sin(k * 0.15) * 0.25;
                 _voltageHistory.Add(baseV + offset);
-                _currentHistory.Add(baseI + offset * 2);
+                _currentHistory.Add(baseI + offset * 1.5);
                 _tempHistory.Add(baseT + (k * 0.05));
             }
             UpdateChartPoints();
